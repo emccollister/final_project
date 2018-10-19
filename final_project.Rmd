@@ -7,24 +7,21 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+hitters <- read_csv("hitters.csv")
 ```
 
-## R Markdown
+## Preci
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+I currently have two data frames uploaded to my repo - hitters.csv and pitchers.csv. I am realizing as I write this that these are poorly named, as it is actually just data from 2018, and I intend to bring in data for every year that it's available (I think since 2010). Eventually I will have one large dataframe for hitters data and one for pitchers. 
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+hitters.csv contains plate discipline data (swing%, contact%, swinging strike%, etc.), and pitchers.csv contains Pitch f/x data (velocity, pitch usage, movement, etc.) My goal for the project is to employ clustering techniques to try to create groupings of hitters and groupings of pitchers, then compare them to see if certain categories of one have particular success against certain categories of the other.
 
-```{r cars}
-summary(cars)
+Below we see the names of the variables in the hitters.csv dataframe, as well as the number of rows.
+```{r}
+names(hitters)
+
+nrow(hitters)
+
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
