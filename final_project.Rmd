@@ -8,7 +8,11 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-hitters <- read_csv("hitters.csv")
+library(janitor)
+library(knitr)
+hitters_2018 <- read_csv("hitters.csv")
+pitchers_2018 <- read_csv("pitchers.csv") %>%
+  clean_names()
 ```
 
 ## Preci
@@ -24,4 +28,7 @@ names(hitters)
 nrow(hitters)
 
 ```
+
+
+
 
