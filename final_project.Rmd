@@ -6,13 +6,54 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE)
 library(tidyverse)
 library(janitor)
 library(knitr)
-hitters_2018 <- read_csv("hitters.csv")
-pitchers_2018 <- read_csv("pitchers.csv") %>%
+
+hitters_2018 <- read_csv("hitters_2018.csv")
+hitters_2017 <- read_csv("hitters_2017.csv")
+hitters_2016 <- read_csv("hitters_2016.csv")
+hitters_2015 <- read_csv("hitters_2015.csv")
+hitters_2014 <- read_csv("hitters_2014.csv")
+hitters_2013 <- read_csv("hitters_2013.csv")
+hitters_2012 <- read_csv("hitters_2012.csv")
+
+pitchers_2018 <- read_csv("pitchers_2018.csv") %>%
   clean_names()
+pitchers_2017 <- read_csv("pitchers_2017.csv") %>%
+  clean_names()
+pitchers_2016 <- read_csv("pitchers_2016.csv") %>%
+  clean_names()
+pitchers_2015 <- read_csv("pitchers_2015.csv") %>%
+  clean_names()
+pitchers_2014 <- read_csv("pitchers_2014.csv") %>%
+  clean_names()
+pitchers_2013 <- read_csv("pitchers_2013.csv") %>%
+  clean_names()
+pitchers_2012 <- read_csv("pitchers_2012.csv", col_types = cols(`vFO (pfx)` = col_double(),
+                                                                `FO-X (pfx)` = col_double(),
+                                                                `FO-Z (pfx)` = col_double())) %>%
+  clean_names()
+```
+
+```{r adding_year_column}
+pitchers_2018 <- pitchers_2018 %>% 
+  mutate(year = "2018")
+pitchers_2017 <- pitchers_2017 %>% 
+  mutate(year = "2017")
+pitchers_2016 <- pitchers_2016 %>% 
+  mutate(year = "2016")
+pitchers_2015 <- pitchers_2015 %>% 
+  mutate(year = "2015")
+pitchers_2014 <- pitchers_2014 %>% 
+  mutate(year = "2014")
+pitchers_2013 <- pitchers_2013 %>% 
+  mutate(year = "2013")
+pitchers_2012 <- pitchers_2012 %>% 
+  mutate(year = "2012")
 ```
 
 ## Preci
@@ -22,13 +63,36 @@ I currently have two data frames uploaded to my repo - hitters.csv and pitchers.
 hitters.csv contains plate discipline data (swing%, contact%, swinging strike%, etc.), and pitchers.csv contains Pitch f/x data (velocity, pitch usage, movement, etc.) My goal for the project is to employ clustering techniques to try to create groupings of hitters and groupings of pitchers, then compare them to see if certain categories of one have particular success against certain categories of the other.
 
 Below we see the names of the variables in the hitters.csv dataframe, as well as the number of rows.
-```{r}
+```{r preci}
 names(hitters)
 
 nrow(hitters)
 
 ```
 
+## Creating Master Dataframes
+```{r creating_masters}
+hitters_all <- hitters_2018 %>%
+  full_join(hitters_2017) %>%
+  full_join(hitters_2016) %>%
+  full_join(hitters_2015) %>%
+  full_join(hitters_2014) %>%
+  full_join(hitters_2013) %>%
+  full_join(hitters_2012)
+
+pitchers_all <- pitchers_2018 %>%
+  full_join(pitchers_2017) %>%
+  full_join(pitchers_2016) %>%
+  full_join(pitchers_2015) %>%
+  full_join(pitchers_2014) %>%
+  full_join(pitchers_2013) %>%
+  full_join(pitchers_2012)
+```
+
+```{r}
+write_csv(pitchers_all, "pitchers_all.csv")
+
+```
 
 
 
