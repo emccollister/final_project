@@ -12,6 +12,9 @@ knitr::opts_chunk$set(echo = FALSE,
 library(tidyverse)
 library(janitor)
 library(knitr)
+```
+
+```{r loading data, cache = TRUE}
 
 hitters_2018 <- read_csv("hitters_2018.csv")
 hitters_2017 <- read_csv("hitters_2017.csv")
@@ -21,39 +24,49 @@ hitters_2014 <- read_csv("hitters_2014.csv")
 hitters_2013 <- read_csv("hitters_2013.csv")
 hitters_2012 <- read_csv("hitters_2012.csv")
 
-pitchers_2018 <- read_csv("pitchers_2018.csv") %>%
+pitchers_2018 <- read_csv("pitchers_2018_new.csv") %>%
   clean_names()
-pitchers_2017 <- read_csv("pitchers_2017.csv") %>%
+pitchers_2017 <- read_csv("pitchers_2017_new.csv") %>%
   clean_names()
-pitchers_2016 <- read_csv("pitchers_2016.csv") %>%
+pitchers_2016 <- read_csv("pitchers_2016_new.csv") %>%
   clean_names()
-pitchers_2015 <- read_csv("pitchers_2015.csv") %>%
+pitchers_2015 <- read_csv("pitchers_2015_new.csv") %>%
   clean_names()
-pitchers_2014 <- read_csv("pitchers_2014.csv") %>%
+pitchers_2014 <- read_csv("pitchers_2014_new.csv") %>%
   clean_names()
-pitchers_2013 <- read_csv("pitchers_2013.csv") %>%
+pitchers_2013 <- read_csv("pitchers_2013_new.csv") %>%
   clean_names()
-pitchers_2012 <- read_csv("pitchers_2012.csv", col_types = cols(`vFO (pfx)` = col_double(),
-                                                                `FO-X (pfx)` = col_double(),
-                                                                `FO-Z (pfx)` = col_double())) %>%
+pitchers_2012 <- read_csv("pitchers_2012_new.csv") %>%  
   clean_names()
 ```
 
-```{r adding_year_column}
+```{r adding_year_column, cache=TRUE}
 pitchers_2018 <- pitchers_2018 %>% 
   mutate(year = "2018")
-pitchers_2017 <- pitchers_2017 %>% 
-  mutate(year = "2017")
+pitchers_2017 <- pitchers_2017 %>%
+  mutate(year = "2017",
+         # Needed to force screwball data to be numeric for joining. Read_csv guessed that it was a character because the entire column is NA
+         v_sb_pi = as.double(v_sb_pi),
+         sb_x_pi = as.double(sb_x_pi),
+         sb_z_pi = as.double(sb_z_pi)) 
 pitchers_2016 <- pitchers_2016 %>% 
-  mutate(year = "2016")
+  mutate(year = "2016",
+         v_sb_pi = as.double(v_sb_pi),
+         sb_x_pi = as.double(sb_x_pi),
+         sb_z_pi = as.double(sb_z_pi))
 pitchers_2015 <- pitchers_2015 %>% 
-  mutate(year = "2015")
+  mutate(year = "2015",
+         v_sb_pi = as.double(v_sb_pi),
+         sb_x_pi = as.double(sb_x_pi),
+         sb_z_pi = as.double(sb_z_pi))
 pitchers_2014 <- pitchers_2014 %>% 
   mutate(year = "2014")
 pitchers_2013 <- pitchers_2013 %>% 
   mutate(year = "2013")
 pitchers_2012 <- pitchers_2012 %>% 
   mutate(year = "2012")
+
+pitchers_2014 %>% filter(sb_percent_pi > 3)
 ```
 
 ## Preci
@@ -63,12 +76,7 @@ I currently have two data frames uploaded to my repo - hitters.csv and pitchers.
 hitters.csv contains plate discipline data (swing%, contact%, swinging strike%, etc.), and pitchers.csv contains Pitch f/x data (velocity, pitch usage, movement, etc.) My goal for the project is to employ clustering techniques to try to create groupings of hitters and groupings of pitchers, then compare them to see if certain categories of one have particular success against certain categories of the other.
 
 Below we see the names of the variables in the hitters.csv dataframe, as well as the number of rows.
-```{r preci}
-names(hitters)
 
-nrow(hitters)
-
-```
 
 ## Creating Master Dataframes
 ```{r creating_masters}
@@ -81,9 +89,9 @@ hitters_all <- hitters_2018 %>%
   full_join(hitters_2012)
 
 pitchers_all <- pitchers_2018 %>%
-  full_join(pitchers_2017) %>%
+  full_join(pitchers_2017) %>% 
   full_join(pitchers_2016) %>%
-  full_join(pitchers_2015) %>%
+  full_join(pitchers_2015) %>% 
   full_join(pitchers_2014) %>%
   full_join(pitchers_2013) %>%
   full_join(pitchers_2012)
@@ -91,8 +99,118 @@ pitchers_all <- pitchers_2018 %>%
 
 ```{r}
 write_csv(pitchers_all, "pitchers_all.csv")
-
+write_csv(hitters_all, "hitters_all.csv")
 ```
 
+```{r}
+# The following code creates a new variable "type", which describes whether a pitcher is a reliever or a starter. This is necessary as I expect relievers to have systematically higher velocity given their (generally) reduced usage. The following also creates a table just to see which pitchers are left out of the binary categorization, as they have equal numbers of relief innings and starting innings. 
+
+pitchers_all %>%
+  mutate(type = case_when(start_ip > relief_ip ~ "SP",
+                          start_ip < relief_ip ~ "RP",
+                          is.na(start_ip) ~ "RP",
+                          is.na(relief_ip) ~ "SP",
+                          TRUE ~ "other")) %>%
+  filter(type == "other") %>%
+  select(name, start_ip, relief_ip, year, type)
+```
+
+
+```{r tidying data}
+pitchers_tidy <- pitchers_all %>%
+  mutate(type = case_when(start_ip > relief_ip ~ "SP",
+                          start_ip < relief_ip ~ "RP",
+                          is.na(start_ip) ~ "RP",
+                          is.na(relief_ip) ~ "SP",
+                          TRUE ~ "other"),
+         fa_pct = str_remove_all(fa_percent_pi, " %"),
+         fa_pct = as.numeric(fa_pct),
+         fc_pct = str_remove_all(fc_percent_pi, " %"),
+         fc_pct = as.numeric(fc_pct),
+         fs_pct = str_remove_all(fs_percent_pi, " %"),
+         fs_pct = as.numeric(fs_pct),
+         si_pct = str_remove_all(si_percent_pi, " %"),
+         si_pct = as.numeric(si_pct),
+         sl_pct = str_remove_all(sl_percent_pi, " %"),
+         sl_pct = as.numeric(sl_pct),
+         cu_pct = str_remove_all(cu_percent_pi, " %"),
+         cu_pct = as.numeric(cu_pct),
+         ch_pct = str_remove_all(ch_percent_pi, " %"),
+         ch_pct = as.numeric(ch_pct),
+         cs_pct = str_remove_all(cs_percent_pi, " %"),
+         cs_pct = as.numeric(cs_pct),
+         sb_pct = str_remove_all(sb_percent_pi, " %"),
+         sb_pct = as.numeric(sb_pct),
+         kn_pct = str_remove_all(kn_percent_pi, " %"),
+         kn_pct = as.numeric(kn_pct),
+         year = as.numeric(year),
+         sw_str_pct = str_remove_all(sw_str_percent, " %"),
+         sw_str_pct = as.numeric(sw_str_pct)) %>%
+ select(name:relief_ip,
+        type,
+        war,
+        sw_str_pct,
+        strikes:year,
+        fa_pct:kn_pct,
+        v_ch_pi:sl_z_pi) 
+```
+```{r }
+pitchers_shiny <- pitchers_tidy %>%
+  gather(key = pitch, value = value, fa_pct:sl_z_pi, na.rm = TRUE) %>%
+  mutate(measure = case_when(str_detect(pitch, "pct") == TRUE ~ "Percent",
+                             str_detect(pitch, "v_") == TRUE ~ "Velocity",
+                             str_detect(pitch, "_x_") == TRUE ~ "Movement_X",
+                             str_detect(pitch, "_z_") == TRUE ~ "Movement_Y")) %>%
+  spread(key = measure, value = value) %>% 
+  mutate(pitch = case_when(pitch %in% c("fa_pct",
+                                        "v_fa_pi",
+                                        "fa_x_pi",
+                                        "fa_z_pi") ~ "fastball",
+                           pitch %in% c("ch_pct",
+                                        "v_ch_pi",
+                                        "ch_x_pi",
+                                        "ch_z_pi") ~ "changeup",
+                           pitch %in% c("cu_pct",
+                                        "v_cu_pi",
+                                        "cu_x_pi",
+                                        "cu_z_pi") ~ "curveball",
+                           pitch %in% c("sl_pct",
+                                        "v_sl_pi",
+                                        "sl_x_pi",
+                                        "sl_z_pi") ~ "slider",
+                           pitch %in% c("fc_pct",
+                                        "v_fc_pi",
+                                        "fc_x_pi",
+                                        "fc_z_pi") ~ "cutter",
+                           pitch %in% c("si_pct",
+                                        "v_si_pi",
+                                        "si_x_pi",
+                                        "si_z_pi") ~ "sinker",
+                           pitch %in% c("fs_pct",
+                                        "v_fs_pi",
+                                        "fs_x_pi",
+                                        "fs_z_pi") ~ "splitter",
+                           pitch %in% c("cs_pct",
+                                        "v_cs_pi",
+                                        "cs_x_pi",
+                                        "cs_z_pi") ~ "slow_curve",
+                           pitch %in% c("kn_pct",
+                                        "v_kn_pi",
+                                        "kn_x_pi",
+                                        "kn_z_pi") ~ "knuckleball",
+                           pitch %in% c("sb_pct",
+                                        "v_sb_pi",
+                                        "sb_x_pi",
+                                        "sb_z_pi") ~ "screwball",
+                           TRUE ~ "OTHER")) %>%
+  # Verified that there were no "OTHER" points present in the data
+  # filter(pitch == "OTHER") %>%
+  gather(key = measure, value, Movement_X:Velocity, na.rm = TRUE) %>%
+  spread(measure, value) 
+```
+
+```{r write csv}
+write_csv(pitchers_shiny, "pitchers_shiny.csv")
+```
 
 
