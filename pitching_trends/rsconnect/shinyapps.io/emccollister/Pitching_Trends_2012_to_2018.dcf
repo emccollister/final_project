@@ -1,0 +1,12 @@
+name: Pitching_Trends_2012_to_2018
+title: Pitching_Trends_2012_to_2018
+username:
+account: emccollister
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 604665
+bundleId: 1741981
+url: https://emccollister.shinyapps.io/Pitching_Trends_2012_to_2018/
+when: 1544002288.99786
+asMultiple: FALSE
+asStatic: FALSE
