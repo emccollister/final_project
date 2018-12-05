@@ -145,12 +145,14 @@ pitchers_tidy <- pitchers_all %>%
          kn_pct = as.numeric(kn_pct),
          year = as.numeric(year),
          sw_str_pct = str_remove_all(sw_str_percent, " %"),
-         sw_str_pct = as.numeric(sw_str_pct)) %>%
+         sw_str_pct = as.numeric(sw_str_pct),
+         str_pct = strikes / pitches * 100) %>%
  select(name:relief_ip,
         type,
         war,
         sw_str_pct,
-        strikes:year,
+        str_pct,
+        k_9:year,
         fa_pct:kn_pct,
         v_ch_pi:sl_z_pi) 
 ```
@@ -212,5 +214,7 @@ pitchers_shiny <- pitchers_tidy %>%
 ```{r write csv}
 write_csv(pitchers_shiny, "pitchers_shiny.csv")
 ```
+
+
 
 
