@@ -238,8 +238,9 @@ write_csv(pitchers_shiny, "pitchers_shiny.csv")
 ```
 
 ```{r create dataframe needed for visualising movement}
+# I created a new dataframe of grouped movement averages by hand and position to compare to selected
+# player/pitch in the shiny app
 movement_shiny <- pitchers_shiny %>%
-  
   filter(type != "other") %>%
   group_by(type, hand, pitch) %>%
   summarize(Movement_X = mean(Movement_X),
@@ -247,9 +248,12 @@ movement_shiny <- pitchers_shiny %>%
             Velocity = mean(Velocity)) %>% 
   mutate(Name = case_when(type == "RP" ~ "Average Reliever",
                           type == "SP" ~ "Average Starter"),
+         
+         # I add a frame variable for animation
          frame = 2) %>% 
   select(Name, everything())
 
+# Creates a dataframe of the pitch starting point at (0,0). Two points are necessary, one for the average player and one for the selected player
 movement_origin <- data_frame(
   Name = c("Origin1","Origin2"),
   type = c("Origin","Origin"),
@@ -259,6 +263,7 @@ movement_origin <- data_frame(
   Movement_Y = c(0, 0),
   frame = c(1, 1))
 
+# Combine datasets
  movement_shiny <- movement_shiny %>% 
   full_join(movement_origin)
  
@@ -266,61 +271,9 @@ movement_origin <- data_frame(
  # Conversely, the previously written .csv files are interesting in their own right
  write_rds(movement_shiny, "movement_shiny.rds")
 ```
-```{r}
-movement_test <- pitchers_shiny %>% 
-  filter(name == "Chris Sale",
-         pitch == "slider",
-         year == 2018) %>% 
-  mutate(frame = 2)
-
-if (movement_test$type == "SP" & movement_test$hand == "RH") {
-  x <- movement_shiny %>%
-  filter(pitch %in% c("slider", "Origin"),
-         type %in% c("SP", "Origin"),
-         hand %in% c("RH", "Origin")) %>%
-  rename(name = Name)
-} else if (movement_test$type == "SP" & movement_test$hand == "LH"){
-  x <- movement_shiny %>%
-  filter(pitch %in% c("slider", "Origin"),
-         type %in% c("SP", "Origin"),
-         hand %in% c("LH", "Origin")) %>%
-  rename(name = Name) 
-} else if (movement_test$type == "RP" & movement_test$hand == "RH"){
-  x <- movement_shiny %>%
-  filter(pitch %in% c("slider", "Origin"),
-         type %in% c("RP", "Origin"),
-         hand %in% c("RH", "Origin")) %>%
-  rename(name = Name) 
-} else if (movement_test$type == "RP" & movement_test$hand == "LH"){
-  x <- movement_shiny %>%
-  filter(pitch %in% c("slider", "Origin"),
-         type %in% c("RP", "Origin"),
-         hand %in% c("LH", "Origin")) %>%
-  rename(name = Name) 
-}
-
-mvmt_plot_test <- movement_test %>% 
-  full_join(x)
 
 
-test_plot <- mvmt_plot_test %>%
-  ggplot(aes(x = Movement_X, y = Movement_Y, frame = frame, col = name)) + 
-  geom_point() +
-  scale_y_continuous(limits = c(-15, 15)) +
-  scale_x_continuous(limits = c(-15, 15))
 
 
-```
-```{r}
-ggplotly(test_plot)
-```
-
-
-```{r}
-movement_shiny %>%
-  filter(pitch %in% c("slider", "Origin"),
-         type %in% c("SP", "Origin")) %>% 
-  rename(name = Name)
-```
 
 

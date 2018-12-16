@@ -1,6 +1,8 @@
 library(shiny)
 library(janitor)
 library(stargazer)
+library(plotly)
+library(gganimate)
 library(shinythemes)
 library(tidyverse)
 
@@ -110,7 +112,16 @@ ui <- fluidPage(theme = shinytheme("yeti"),
                       value = 2016,
                       ticks = TRUE,
                       step = 1,
-                      sep = "")),
+                      sep = ""),
+          br(),
+          
+          tags$h6(helpText("The plot compares the movement of the selected player's pitch to the movement of the same pitch thrown by the average pitcher
+                            of the same position throwing from the same hand. Movement is calculate relative to the movement of a pitch throwin with no spin - therefore,
+                           some pitches (those with high spin rates) appear to \"move\" upwards." )),
+        
+          br(),
+         
+           tags$h3(helpText("Plot is from the view of the catcher looking towards the pitcher"))),
      
       mainPanel(
         plotlyOutput("movementPlot")
@@ -231,68 +242,84 @@ server <- function(input, output) {
      }
    })
    
-
+# Building movement plot
     output$movementPlot <- renderPlotly({
+ 
+      # Creating label of selected name     
+      name_label <- reactive({
+        req(input$name)
+        name_label <- input$name_movement
+      })
       
-      movement_test <- reactive({
-        req(input$name_movement)
-        pitchers_shiny %>%
+      # Filtering all data by inputs and adding frame variable
+      movement_name <-  pitchers_shiny %>%
         filter(name == input$name_movement,
                year == input$year,
                pitch == input$pitch_move) %>% 
           mutate(frame = 2)
+
+      # Use validate() to ensure that data exists for selected pitcher/pitch/year to avoid warning message
+      movement_test <- reactive({
+        validate(
+          need(input$pitch_move %in% movement_name$pitch & input$year %in% movement_name$year,
+               "The selected pitcher either did not play or throw the selected pitch this year!"))
+          #     "The selected pitcher does not throw this pitch!"),
+          #need(input$year %in% movement_name$year,
+          #     "The selected pitcher either did not play or throw the selected pitch this year!"))
+        movement_name %>%
+          filter(year == input$year,
+                 pitch == input$pitch_move)
       })
         
-      
-      # movement_test <- reactive({
-      #   validate(
-      #     need(input$pitch_move %in% movement_name$pitch, 
-      #          "The selected pitcher does not throw this pitch!"),
-      #     need(input$year %in% movement_name$year,
-      #          "The selected pitcher either did not play or throw the selected pitch this year!"))
-      #   movement_name %>%
-      #     filter(year == input$year,
-      #            pitch == input$pitch_move)
-      # })
-        
-      
-      if (movement_test$type == "SP" & movement_test$hand == "RH") {
+      # using if/else logic to determine which "average" player to compare to based on position 
+      # and handedness. Also ensures that "origin" starting points aren't lost
+      if (movement_test()$type == "SP" & movement_test()$hand == "RH") {
         x <- movement_shiny %>%
           filter(pitch %in% c(input$pitch_move, "Origin"),
                  type %in% c("SP", "Origin"),
                  hand %in% c("RH", "Origin")) %>%
-          rename(name = Name)
-      } else if (movement_test$type == "SP" & movement_test$hand == "LH"){
+          rename(name = Name) %>% 
+          arrange(name)
+      } else if (movement_test()$type == "SP" & movement_test()$hand == "LH"){
         x <- movement_shiny %>%
           filter(pitch %in% c(input$pitch_move, "Origin"),
                  type %in% c("SP", "Origin"),
                  hand %in% c("LH", "Origin")) %>%
-          rename(name = Name) 
-      } else if (movement_test$type == "RP" & movement_test$hand == "RH"){
+          rename(name = Name) %>% 
+          arrange(name)
+      } else if (movement_test()$type == "RP" & movement_test()$hand == "RH"){
         x <- movement_shiny %>%
           filter(pitch %in% c(input$pitch_move, "Origin"),
                  type %in% c("RP", "Origin"),
                  hand %in% c("RH", "Origin")) %>%
-          rename(name = Name) 
-      } else if (movement_test$type == "RP" & movement_test$hand == "LH"){
+          rename(name = Name) %>%
+          arrange(name)
+      } else if (movement_test()$type == "RP" & movement_test()$hand == "LH"){
         x <- movement_shiny %>%
           filter(pitch %in% c(input$pitch_move, "Origin"),
                  type %in% c("RP", "Origin"),
                  hand %in% c("LH", "Origin")) %>%
-          rename(name = Name) 
+          rename(name = Name) %>% 
+          arrange(name)
       }
       
-      mvmt_plot_test <- movement_test %>% 
+      #use full join to make plot ready dataframe of comparisons and selected player data
+      mvmt_plot_test <- movement_test() %>% 
         full_join(x)
       
-      
+      # create plot, using frame variable for animation
       test_plot <- mvmt_plot_test %>%
-        ggplot(aes(x = Movement_X, y = Movement_Y, frame = frame)) + 
-        geom_point() +
+        ggplot(aes(x = Movement_X, y = Movement_Y, col = name)) + 
+        geom_point(aes(frame = frame)) +
         scale_y_continuous(limits = c(-15, 15)) +
-        scale_x_continuous(limits = c(-15, 15))
-      
-      ggplotly(test_plot)
+        scale_x_continuous(limits = c(-15, 15)) +
+        theme(legend.position = "none") +
+        labs(x = "Horizontal Movement [inches]",
+             y = "Vertical Movement [inches]",
+             title = name_label())
+             
+      # Use ggplotly to animate data and use tooltip to show point data
+      ggplotly(test_plot, tooltip = c("name", "Movement_X", "Movement_Y"))
     })  
   
     
