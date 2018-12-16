@@ -6,6 +6,7 @@ library(tidyverse)
 
 
 pitchers_shiny <- read_csv("pitchers_shiny.csv")
+movement_shiny <- read_rds("movement_shiny.rds")
 
 # Create list of every player name that appears in the data set, using unique
 # as each name appears for every year there is data for it
@@ -75,6 +76,47 @@ ui <- fluidPage(theme = shinytheme("yeti"),
               )
             )
           ),
+   
+   tabPanel("Visualising Movement",
+      sidebarLayout(
+        sidebarPanel(
+          selectizeInput("name_movement",
+                         "Select a Player:",
+                         choices = names,
+                         selected = "Chris Sale"),
+          
+          br(), 
+          
+          selectInput("pitch_move",
+                      "Select a pitch:",
+                      choices = c("Fastball" = "fastball",
+                                  "Cutter" = "cutter",
+                                  "Splitter" = "splitter",
+                                  "Curveball" = "curveball",
+                                  "Slow Curve" = "slow_curve",
+                                  "Changeup" = "changeup",
+                                  "Sinker" = "sinker",
+                                  "Slider" = "slider",
+                                  "Screwball" = "screwball",
+                                  "Knuckleball" = "knuckleball"),
+                      multiple = FALSE,
+                      selected = "Slider"),
+          br(),
+          
+          sliderInput("year",
+                      "Select a year:",
+                      min = 2012,
+                      max = 2018,
+                      value = 2016,
+                      ticks = TRUE,
+                      step = 1,
+                      sep = "")),
+     
+      mainPanel(
+        plotlyOutput("movementPlot")
+        )
+       )
+   ),
    
    # Creating a new tab of inputs/outputs for League Models
    tabPanel("League-Wide Models",
@@ -189,6 +231,72 @@ server <- function(input, output) {
      }
    })
    
+
+    output$movementPlot <- renderPlotly({
+      
+      movement_test <- reactive({
+        req(input$name_movement)
+        pitchers_shiny %>%
+        filter(name == input$name_movement,
+               year == input$year,
+               pitch == input$pitch_move) %>% 
+          mutate(frame = 2)
+      })
+        
+      
+      # movement_test <- reactive({
+      #   validate(
+      #     need(input$pitch_move %in% movement_name$pitch, 
+      #          "The selected pitcher does not throw this pitch!"),
+      #     need(input$year %in% movement_name$year,
+      #          "The selected pitcher either did not play or throw the selected pitch this year!"))
+      #   movement_name %>%
+      #     filter(year == input$year,
+      #            pitch == input$pitch_move)
+      # })
+        
+      
+      if (movement_test$type == "SP" & movement_test$hand == "RH") {
+        x <- movement_shiny %>%
+          filter(pitch %in% c(input$pitch_move, "Origin"),
+                 type %in% c("SP", "Origin"),
+                 hand %in% c("RH", "Origin")) %>%
+          rename(name = Name)
+      } else if (movement_test$type == "SP" & movement_test$hand == "LH"){
+        x <- movement_shiny %>%
+          filter(pitch %in% c(input$pitch_move, "Origin"),
+                 type %in% c("SP", "Origin"),
+                 hand %in% c("LH", "Origin")) %>%
+          rename(name = Name) 
+      } else if (movement_test$type == "RP" & movement_test$hand == "RH"){
+        x <- movement_shiny %>%
+          filter(pitch %in% c(input$pitch_move, "Origin"),
+                 type %in% c("RP", "Origin"),
+                 hand %in% c("RH", "Origin")) %>%
+          rename(name = Name) 
+      } else if (movement_test$type == "RP" & movement_test$hand == "LH"){
+        x <- movement_shiny %>%
+          filter(pitch %in% c(input$pitch_move, "Origin"),
+                 type %in% c("RP", "Origin"),
+                 hand %in% c("LH", "Origin")) %>%
+          rename(name = Name) 
+      }
+      
+      mvmt_plot_test <- movement_test %>% 
+        full_join(x)
+      
+      
+      test_plot <- mvmt_plot_test %>%
+        ggplot(aes(x = Movement_X, y = Movement_Y, frame = frame)) + 
+        geom_point() +
+        scale_y_continuous(limits = c(-15, 15)) +
+        scale_x_continuous(limits = c(-15, 15))
+      
+      ggplotly(test_plot)
+    })  
+  
+    
+    
    output$leagueModel <- renderUI({
      
      # Filters data prior to model-fitting based on user-inputted position and pitch.
@@ -212,7 +320,9 @@ server <- function(input, output) {
        HTML(stargazer(lm(data = fit_data, 
                       sw_str_pct ~ Percent + Velocity + Movement_X + Movement_Y), 
                       type = "html",
-                      dep.var.labels = "Swinging Strike Percentage"
+                      dep.var.labels = "Swinging Strike Percentage",
+                      notes = "It is difficult to draw any significant conclusions from these models, as they are admittedly flawed. Judging from the R^2 values, none of the pitches are particularly explanatory to any of the response variables. This in not unsurprising, as, after all, we're regressing one pitch at a time. Unfortunately, it was not possible to regress all the pitches at once due to issues with multicollinearity.",
+                      notes.align = "c"
           )
        )
     }
@@ -221,7 +331,9 @@ server <- function(input, output) {
        HTML(stargazer(lm(data = fit_data, 
                       str_pct ~ Percent + Velocity + Movement_X + Movement_Y), 
                       type = "html",
-                      dep.var.labels = "Strike Percentage"
+                      dep.var.labels = "Strike Percentage",
+                      notes = "It is difficult to draw any significant conclusions from these models, as they are admittedly flawed. Judging from the R^2 values, none of the pitches are particularly explanatory to any of the response variables. This in not unsurprising, as, after all, we're regressing one pitch at a time. Unfortunately, it was not possible to regress all the pitches at once due to issues with multicollinearity.",
+                      notes.align = "c"
           )
        )
     }

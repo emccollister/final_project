@@ -11,9 +11,12 @@ knitr::opts_chunk$set(echo = FALSE,
                       warning = FALSE)
 
 # Load necessary packages
-library(tidyverse)
+
 library(janitor)
 library(knitr)
+library(gganimate)
+library(plotly)
+library(tidyverse)
 ```
 
 ```{r loading data, cache = TRUE}
@@ -45,6 +48,7 @@ pitchers_2017 <- pitchers_2017 %>%
          v_sb_pi = as.double(v_sb_pi),
          sb_x_pi = as.double(sb_x_pi),
          sb_z_pi = as.double(sb_z_pi)) 
+
 pitchers_2016 <- pitchers_2016 %>% 
   mutate(year = "2016",
          
@@ -52,6 +56,7 @@ pitchers_2016 <- pitchers_2016 %>%
          v_sb_pi = as.double(v_sb_pi),
          sb_x_pi = as.double(sb_x_pi),
          sb_z_pi = as.double(sb_z_pi))
+
 pitchers_2015 <- pitchers_2015 %>% 
   mutate(year = "2015",
          
@@ -138,11 +143,17 @@ pitchers_tidy <- pitchers_all %>%
          sw_str_pct = as.numeric(sw_str_pct),
          
          # Created a strike percent column out of the appropriate raw counts
-         str_pct = strikes / pitches * 100) %>%
+         str_pct = strikes / pitches * 100,
+         
+         hand = case_when(cu_x_pi > 0 | sl_x_pi > 0 | fa_x_pi < 0 ~ "RH",
+                          cu_x_pi < 0 | sl_x_pi < 0 | fa_x_pi > 0 ~ "LH",
+                          name %in% c("Tony Watson", "Francisco Liriano") ~ "LH",
+                          name == "Mariano Rivera" ~ "RH")) %>%
   
   # Selected out necessary variables
  select(name:relief_ip,
         type,
+        hand,
         war,
         sw_str_pct,
         str_pct,
@@ -226,6 +237,90 @@ pitchers_shiny <- pitchers_tidy %>%
 write_csv(pitchers_shiny, "pitchers_shiny.csv")
 ```
 
+```{r create dataframe needed for visualising movement}
+movement_shiny <- pitchers_shiny %>%
+  
+  filter(type != "other") %>%
+  group_by(type, hand, pitch) %>%
+  summarize(Movement_X = mean(Movement_X),
+            Movement_Y = mean(Movement_Y),
+            Velocity = mean(Velocity)) %>% 
+  mutate(Name = case_when(type == "RP" ~ "Average Reliever",
+                          type == "SP" ~ "Average Starter"),
+         frame = 2) %>% 
+  select(Name, everything())
 
+movement_origin <- data_frame(
+  Name = c("Origin1","Origin2"),
+  type = c("Origin","Origin"),
+  hand = c("Origin", "Origin"),
+  pitch = c("Origin", "Origin"),
+  Movement_X = c(0, 0),
+  Movement_Y = c(0, 0),
+  frame = c(1, 1))
+
+ movement_shiny <- movement_shiny %>% 
+  full_join(movement_origin)
+ 
+ # I opted to make this a .rds instead of a .csv as this file as no value outside of the shiny app
+ # Conversely, the previously written .csv files are interesting in their own right
+ write_rds(movement_shiny, "movement_shiny.rds")
+```
+```{r}
+movement_test <- pitchers_shiny %>% 
+  filter(name == "Chris Sale",
+         pitch == "slider",
+         year == 2018) %>% 
+  mutate(frame = 2)
+
+if (movement_test$type == "SP" & movement_test$hand == "RH") {
+  x <- movement_shiny %>%
+  filter(pitch %in% c("slider", "Origin"),
+         type %in% c("SP", "Origin"),
+         hand %in% c("RH", "Origin")) %>%
+  rename(name = Name)
+} else if (movement_test$type == "SP" & movement_test$hand == "LH"){
+  x <- movement_shiny %>%
+  filter(pitch %in% c("slider", "Origin"),
+         type %in% c("SP", "Origin"),
+         hand %in% c("LH", "Origin")) %>%
+  rename(name = Name) 
+} else if (movement_test$type == "RP" & movement_test$hand == "RH"){
+  x <- movement_shiny %>%
+  filter(pitch %in% c("slider", "Origin"),
+         type %in% c("RP", "Origin"),
+         hand %in% c("RH", "Origin")) %>%
+  rename(name = Name) 
+} else if (movement_test$type == "RP" & movement_test$hand == "LH"){
+  x <- movement_shiny %>%
+  filter(pitch %in% c("slider", "Origin"),
+         type %in% c("RP", "Origin"),
+         hand %in% c("LH", "Origin")) %>%
+  rename(name = Name) 
+}
+
+mvmt_plot_test <- movement_test %>% 
+  full_join(x)
+
+
+test_plot <- mvmt_plot_test %>%
+  ggplot(aes(x = Movement_X, y = Movement_Y, frame = frame, col = name)) + 
+  geom_point() +
+  scale_y_continuous(limits = c(-15, 15)) +
+  scale_x_continuous(limits = c(-15, 15))
+
+
+```
+```{r}
+ggplotly(test_plot)
+```
+
+
+```{r}
+movement_shiny %>%
+  filter(pitch %in% c("slider", "Origin"),
+         type %in% c("SP", "Origin")) %>% 
+  rename(name = Name)
+```
 
 
